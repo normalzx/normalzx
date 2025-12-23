@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026 匈牙利之旅 | 行程同步中心</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 PapaParse 用於處理 CSV 轉 JSON -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <!-- 引入 Lucide 圖示 -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; color: #1e293b; }
+        .glass-nav { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(226, 232, 240, 0.8); }
+        .trip-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid #f1f5f9; }
+        .trip-card:active { transform: scale(0.98); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+    </style>
+</head>
+<body class="min-h-screen pb-12">
+
+    <!-- 頂部導覽列 -->
+    <nav class="sticky top-0 z-50 glass-nav px-4 py-3">
+        <div class="max-w-md mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="bg-indigo-600 p-2 rounded-lg text-white">
+                    <i data-lucide="compass" size="20"></i>
+                </div>
+                <h1 class="font-black text-lg tracking-tight">HUNGARY 2026</h1>
+            </div>
+            <button onclick="fetchData()" class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500">
+                <i data-lucide="refresh-cw" size="18" id="refresh-icon"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- 橫幅區域 -->
+    <header class="bg-indigo-700 text-white px-6 pt-10 pb-16">
+        <div class="max-w-md mx-auto">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm text-[10px] font-bold tracking-widest uppercase mb-3">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                Live Syncing
+            </div>
+            <h2 class="text-3xl font-black">匈牙利行程明細</h2>
+            <p class="text-indigo-100/60 text-xs mt-1">即時同步自 Google Sheets 雲端資料庫</p>
+        </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 -mt-8">
+        <!-- 數據儀表板 -->
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+                <div class="text-slate-400 mb-1"><i data-lucide="calendar" size="14"></i></div>
+                <div id="stat-days" class="text-2xl font-black">--</div>
+                <div class="text-[10px] font-bold text-slate-400 uppercase">Total Days</div>
+            </div>
+            <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+                <div class="text-emerald-500 mb-1"><i data-lucide="credit-card" size="14"></i></div>
+                <div id="stat-budget" class="text-2xl font-black">--</div>
+                <div class="text-[10px] font-bold text-slate-400 uppercase">Estimated Budget</div>
+            </div>
+        </div>
+
+        <!-- 列表容器 -->
+        <div id="itinerary-list" class="space-y-4">
+            <!-- 載入骨架屏 -->
+            <div class="py-12 text-center text-slate-400">
+                <div class="inline-block animate-spin mb-3"><i data-lucide="loader" size="24"></i></div>
+                <p class="text-xs font-medium uppercase tracking-widest">Loading Cloud Data...</p>
+            </div>
+        </div>
+
+        <!-- 底部腳註 -->
+        <footer class="mt-12 text-center">
+            <p class="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em]" id="update-time">Ready to Sync</p>
+        </footer>
+    </main>
+
+    <script>
+        // 你發佈的 CSV 連結
+        const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6NtswehuO8WcOylXYayEx-lLhVt4UD25uM1mcDuuttddweFhKMdf_WWTa1YmTDvWpKHmn5PCRSnBu/pub?output=csv';
+
+        async function fetchData() {
+            const btnIcon = document.getElementById('refresh-icon');
+            btnIcon.classList.add('animate-spin');
+
+            Papa.parse(SHEET_URL, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    renderUI(results.data);
+                    setTimeout(() => btnIcon.classList.remove('animate-spin'), 600);
+                },
+                error: function() {
+                    document.getElementById('itinerary-list').innerHTML = `
+                        <div class="bg-red-50 text-red-500 p-6 rounded-3xl text-center text-xs font-bold border border-red-100">
+                            連結失效或 CSV 格式錯誤
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        function renderUI(data) {
+            const list = document.getElementById('itinerary-list');
+            list.innerHTML = '';
+            
+            let totalCost = 0;
+            // 排除空行（判斷「項目」或「日期」是否有值）
+            const rows = data.filter(r => r['項目'] || r['日期'] || r['Item'] || r['Date']);
+
+            rows.forEach((item, index) => {
+                // 自動適應中英文標題
+                const title = item['項目'] || item['Item'] || '未命名行程';
+                const date = item['日期'] || item['Date'] || '';
+                const city = item['城市'] || item['City'] || '匈牙利';
+                const note = item['備註'] || item['Note'] || '';
+                const type = item['類型'] || item['Type'] || '其他';
+                const costStr = item['花費'] || item['Cost'] || '0';
+                const cost = parseInt(costStr.replace(/[^0-9]/g, '')) || 0;
+                totalCost += cost;
+
+                const typeColors = {
+                    '交通': 'bg-blue-100 text-blue-600',
+                    '餐飲': 'bg-orange-100 text-orange-600',
+                    '景點': 'bg-emerald-100 text-emerald-600',
+                    '住宿': 'bg-purple-100 text-purple-600'
+                };
+                const badgeClass = typeColors[type] || 'bg-slate-100 text-slate-500';
+
+                const card = document.createElement('div');
+                card.className = "trip-card bg-white p-5 rounded-[2rem] shadow-sm animate-fade-in flex gap-4";
+                card.style.animationDelay = `${index * 0.05}s`;
+
+                card.innerHTML = `
+                    <div class="flex-shrink-0 w-12 flex flex-col items-center">
+                        <span class="text-[9px] font-black text-slate-300 uppercase">${date}</span>
+                        <div class="h-10 w-10 rounded-2xl bg-slate-50 flex items-center justify-center font-black text-indigo-600 mt-1">
+                            ${index + 1}
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-start">
+                            <h3 class="font-bold text-slate-800 truncate pr-2">${title}</h3>
+                            <span class="text-[9px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${badgeClass}">${type}</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-1 line-clamp-1">${note}</p>
+                        <div class="mt-4 flex justify-between items-center border-t border-slate-50 pt-3">
+                            <div class="flex items-center gap-1 text-slate-400">
+                                <i data-lucide="map-pin" size="10"></i>
+                                <span class="text-[10px] font-bold">${city}</span>
+                            </div>
+                            <span class="text-xs font-black text-slate-600">
+                                ${cost > 0 ? 'NT$ ' + cost.toLocaleString() : '<span class="text-slate-300">N/A</span>'}
+                            </span>
+                        </div>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+
+            document.getElementById('stat-days').innerText = rows.length;
+            document.getElementById('stat-budget').innerText = 'NT$ ' + totalCost.toLocaleString();
+            document.getElementById('update-time').innerText = 'Updated: ' + new Date().toLocaleTimeString();
+            
+            lucide.createIcons();
+        }
+
+        window.onload = () => {
+            lucide.createIcons();
+            fetchData();
+        };
+    </script>
+</body>
+</html>
