@@ -1,277 +1,306 @@
-import React, { useState, useMemo } from 'react';
-import { Calendar, Wallet, MapPin, Plus, Trash2, ChevronRight, CheckCircle2, Circle, Settings2 } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Calendar, Wallet, MapPin, Plus, Trash2, CheckCircle2, Circle, Settings2, Clock, Train, Plane, Coffee, ChevronRight } from 'lucide-react';
 
 const TravelPlanner = () => {
   const [activeTab, setActiveTab] = useState('itinerary');
   
-  // 匯率與基礎設定
+  // 從您的檔案「設定」分頁讀取的初始參數
   const [settings, setSettings] = useState({
     rates: { TWD: 1, EUR: 35, HUF: 0.09, CZK: 1.55 },
     planeTicket: 36098,
     reserveRate: 0.1
   });
 
-  // 初始行程資料
+  // 從您的檔案「行程明細」分頁讀取的詳細資料
   const [itinerary, setItinerary] = useState([
-    { id: 1, date: '2026-02-20', day: 'Day 0', city: 'Flight', activity: 'EVA Air TPE → VIE', category: '交通', cost: 36098, currency: 'TWD', status: '已確認', note: 'Overnight flight' },
-    { id: 2, date: '2026-02-21', day: 'Day 1', city: 'Vienna', activity: 'Arrive VIE, immigration', category: '行政', cost: 0, currency: 'EUR', status: '規劃中', note: 'Allow 60–90 min' },
-    { id: 3, date: '2026-02-21', day: 'Day 1', city: 'Vienna', activity: 'Airport → Wien Hbf', category: '交通', cost: 4.5, currency: 'EUR', status: '規劃中', note: 'Railjet or S7' },
-    { id: 4, date: '2026-02-22', day: 'Day 2', city: 'Vienna', activity: 'Upper Belvedere – Klimt The Kiss', category: '博物館', cost: 18, currency: 'EUR', status: '規劃中', note: 'Book timed ticket' },
-    { id: 5, date: '2026-02-24', day: 'Day 4', city: 'Zell am See', activity: 'Train to Zell am See', category: '交通', cost: 29, currency: 'EUR', status: '規劃中', note: 'OBB Railjet' },
-    { id: 6, date: '2026-02-25', day: 'Day 5', city: 'Zell am See', activity: 'Ski lesson Day 1', category: '滑雪', cost: 85, currency: 'EUR', status: '規劃中', note: 'Beginner area' },
-    { id: 7, date: '2026-03-02', day: 'Day 10', city: 'Budapest', activity: 'Train to Budapest', category: '交通', cost: 40, currency: 'EUR', status: '規劃中', note: 'Long transfer' },
-    { id: 8, date: '2026-03-04', day: 'Day 12', city: 'Budapest', activity: 'Széchenyi Thermal Bath', category: '泡湯', cost: 12000, currency: 'HUF', status: '規劃中', note: 'Metro access' },
-    { id: 9, date: '2026-03-05', day: 'Day 13', city: 'Prague', activity: 'Old Town Square stroll', category: '景點', cost: 0, currency: 'CZK', status: '規劃中', note: 'Charles Bridge nearby' },
+    { id: 1, date: '2026-02-20', day: 'Day 0', city: 'Flight', startTime: '20:30', activity: 'Check-in, baggage, exit immigration', category: '行政', cost: 0, currency: 'TWD', status: '已確認', note: 'Arrive early for international check-in' },
+    { id: 2, date: '2026-02-20', day: 'Day 0', city: 'Flight', startTime: '23:35', activity: 'EVA Air direct flight TPE → VIE', category: '交通', cost: 36098, currency: 'TWD', status: '已確認', note: 'Overnight flight; time zone change' },
+    { id: 3, date: '2026-02-21', day: 'Day 1', city: 'Vienna', startTime: '06:45', activity: 'Arrive VIE, immigration, baggage', category: '行政', cost: 0, currency: 'EUR', status: '規劃中', note: 'Allow 60–90 min' },
+    { id: 4, date: '2026-02-21', day: 'Day 1', city: 'Vienna', startTime: '08:30', activity: 'Airport → Wien Hbf / city', category: '交通', cost: 4.5, currency: 'EUR', status: '規劃中', note: 'Railjet or S7 + transfer' },
+    { id: 5, date: '2026-02-22', day: 'Day 2', city: 'Vienna', startTime: '09:00', activity: 'Upper Belvedere - Klimt The Kiss', category: '博物館', cost: 18, currency: 'EUR', status: '規劃中', note: 'Pre-booked timed ticket' },
+    { id: 6, date: '2026-02-24', day: 'Day 4', city: 'Vienna → Zell am See', startTime: '08:00', activity: 'Train to Zell am See', category: '交通', cost: 29, currency: 'EUR', status: '規劃中', note: 'OBB Railjet (Sparschine)' },
+    { id: 7, date: '2026-02-25', day: 'Day 5', city: 'Zell am See', startTime: '09:00', activity: 'Ski Lesson Day 1 (Morning)', category: '滑雪', cost: 85, currency: 'EUR', status: '規劃中', note: 'Schmittenhöhe' },
+    { id: 8, date: '2026-03-02', day: 'Day 10', city: 'Vienna → Budapest', startTime: '09:00', activity: 'Train to Budapest (Keleti)', category: '交通', cost: 40, currency: 'EUR', status: '規劃中', note: 'OBB or MAV' },
+    { id: 9, date: '2026-03-04', day: 'Day 12', city: 'Budapest', startTime: '10:00', activity: 'Széchenyi Thermal Bath', category: '泡湯', cost: 12000, currency: 'HUF', status: '規劃中', note: 'Metro M1' },
+    { id: 10, date: '2026-03-05', day: 'Day 13', city: 'Prague', startTime: '19:15', activity: 'Charles Bridge at night', category: '景點', cost: 0, currency: 'CZK', status: '規劃中', note: 'Walk' },
+    { id: 11, date: '2026-03-06', day: 'Day 14', city: 'Prague', startTime: '13:00', activity: 'Prague Castle quick route', category: '景點', cost: 0, currency: 'EUR', status: '規劃中', note: 'Key viewpoints' },
+    { id: 12, date: '2026-03-06', day: 'Day 14', city: 'Prague → Vienna', startTime: '15:30', activity: 'Train to Vienna', category: '交通', cost: 25, currency: 'EUR', status: '規劃中', note: 'RegioJet or OBB' },
+    { id: 13, date: '2026-03-07', day: 'Day 15', city: 'Vienna', startTime: '12:30', activity: 'Vienna Airport Check-in', category: '行政', cost: 0, currency: 'EUR', status: '規劃中', note: 'Flight back at 14:30' },
   ]);
 
-  // 修改處理函式
   const handleEdit = (id, field, value) => {
     setItinerary(prev => prev.map(item => 
       item.id === id ? { ...item, [field]: value } : item
     ));
   };
 
-  // 預算計算邏輯
   const budgetStats = useMemo(() => {
     const itineraryTotalTWD = itinerary.reduce((acc, curr) => {
       const rate = settings.rates[curr.currency] || 1;
       return acc + (Number(curr.cost) * rate);
     }, 0);
-
     const reserve = Math.round(itineraryTotalTWD * settings.reserveRate);
-    const grandTotal = Math.round(itineraryTotalTWD + reserve);
-
-    return { itineraryTotalTWD, reserve, grandTotal };
+    return { itineraryTotalTWD, reserve, grandTotal: Math.round(itineraryTotalTWD + reserve) };
   }, [itinerary, settings]);
 
-  const getCategoryColor = (cat) => {
+  const getCategoryStyle = (cat) => {
     const map = {
-      '交通': 'bg-blue-100 text-blue-700',
-      '餐飲': 'bg-orange-100 text-orange-700',
-      '滑雪': 'bg-cyan-100 text-cyan-700',
-      '博物館': 'bg-purple-100 text-purple-700',
-      '景點': 'bg-emerald-100 text-emerald-700',
-      '行政': 'bg-gray-100 text-gray-700',
-      '泡湯': 'bg-pink-100 text-pink-700'
+      '交通': 'bg-blue-50 text-blue-600 border-blue-100',
+      '餐飲': 'bg-orange-50 text-orange-600 border-orange-100',
+      '滑雪': 'bg-cyan-50 text-cyan-600 border-cyan-100',
+      '景點': 'bg-emerald-50 text-emerald-600 border-emerald-100',
+      '行政': 'bg-slate-50 text-slate-500 border-slate-100',
+      '泡湯': 'bg-pink-50 text-pink-600 border-pink-100',
+      '博物館': 'bg-purple-50 text-purple-600 border-purple-100'
     };
-    return map[cat] || 'bg-slate-100 text-slate-700';
+    return map[cat] || 'bg-slate-50 text-slate-500 border-slate-100';
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
-      <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200">
+    <div className="min-h-screen bg-slate-100 p-2 md:p-6 font-sans text-slate-800">
+      <div className="max-w-7xl mx-auto">
         
-        {/* Header Dashboard */}
-        <div className="bg-slate-900 p-8 text-white">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        {/* Header Section */}
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+          <div className="bg-slate-900 p-8 text-white flex flex-col md:flex-row justify-between items-center gap-6">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight mb-2">2026 中歐跨國冬旅規劃</h1>
-              <div className="flex items-center gap-4 text-slate-400">
-                <span className="flex items-center gap-1"><Calendar size={16}/> 15 Days</span>
-                <span className="flex items-center gap-1"><MapPin size={16}/> Vienna, Zell am See, Budapest, Prague</span>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="bg-blue-600 text-xs font-black px-2 py-1 rounded uppercase tracking-wider">2026 Winter</span>
+                <h1 className="text-2xl font-bold">中歐跨國行程規劃工具</h1>
               </div>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">預估總支出 (含預備金)</p>
-              <p className="text-3xl font-mono font-bold text-amber-400">
-                NT$ {budgetStats.grandTotal.toLocaleString()}
+              <p className="text-slate-400 flex items-center gap-2 text-sm">
+                <MapPin size={14}/> 維也納 · 濱湖采爾 · 布達佩斯 · 布拉格
               </p>
             </div>
+            
+            <div className="flex gap-4">
+              <div className="text-right">
+                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">預估總支出</p>
+                <p className="text-3xl font-mono font-bold text-blue-400">NT$ {budgetStats.grandTotal.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className="flex bg-white px-4 border-b border-slate-100">
+            <button 
+              onClick={() => setActiveTab('itinerary')}
+              className={`py-4 px-6 flex items-center gap-2 font-bold transition-all text-sm ${activeTab === 'itinerary' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              <Calendar size={18} /> 行程詳情表
+            </button>
+            <button 
+              onClick={() => setActiveTab('budget')}
+              className={`py-4 px-6 flex items-center gap-2 font-bold transition-all text-sm ${activeTab === 'budget' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              <Wallet size={18} /> 預算與匯率控制
+            </button>
+          </div>
+
+          <div className="p-0">
+            {activeTab === 'itinerary' ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[1100px]">
+                  <thead>
+                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+                      <th className="px-6 py-4 w-12 text-center">#</th>
+                      <th className="px-6 py-4 w-28 text-center">日期 / 天</th>
+                      <th className="px-6 py-4 w-32">地點</th>
+                      <th className="px-6 py-4 w-24">時間</th>
+                      <th className="px-6 py-4">活動行程</th>
+                      <th className="px-6 py-4 w-28">分類</th>
+                      <th className="px-6 py-4 w-32 text-right">費用</th>
+                      <th className="px-6 py-4 w-20">幣別</th>
+                      <th className="px-6 py-4">備註</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {itinerary.map((item, idx) => (
+                      <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group">
+                        <td className="px-6 py-4 text-center">
+                           <button 
+                            onClick={() => handleEdit(item.id, 'status', item.status === '已確認' ? '規劃中' : '已確認')}
+                            className="focus:outline-none"
+                          >
+                            {item.status === '已確認' ? <CheckCircle2 className="text-blue-500" size={18}/> : <Circle className="text-slate-200" size={18}/>}
+                          </button>
+                        </td>
+                        <td className="px-6 py-4">
+                          <input 
+                            className="bg-transparent border-none font-bold text-xs w-full p-0 focus:ring-0" 
+                            value={item.date} 
+                            onChange={(e) => handleEdit(item.id, 'date', e.target.value)}
+                          />
+                          <div className="text-[10px] text-slate-400 font-mono">{item.day}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <input 
+                            className="bg-transparent border-none text-xs w-full p-0 focus:ring-0" 
+                            value={item.city} 
+                            onChange={(e) => handleEdit(item.id, 'city', e.target.value)}
+                          />
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-1 text-slate-400">
+                            <Clock size={12}/>
+                            <input 
+                              className="bg-transparent border-none text-xs font-mono w-full p-0 focus:ring-0" 
+                              value={item.startTime} 
+                              onChange={(e) => handleEdit(item.id, 'startTime', e.target.value)}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <input 
+                            className="bg-transparent border-none font-bold text-slate-700 w-full p-0 focus:ring-0 text-sm" 
+                            value={item.activity} 
+                            onChange={(e) => handleEdit(item.id, 'activity', e.target.value)}
+                          />
+                        </td>
+                        <td className="px-6 py-4">
+                          <select 
+                            className={`text-[10px] font-bold py-1 px-2 rounded border ${getCategoryStyle(item.category)} appearance-none focus:ring-0`}
+                            value={item.category}
+                            onChange={(e) => handleEdit(item.id, 'category', e.target.value)}
+                          >
+                            {['交通', '餐飲', '滑雪', '博物館', '景點', '行政', '泡湯', '住宿'].map(cat => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <input 
+                            type="number"
+                            className="bg-transparent border-none text-right font-mono font-bold w-full p-0 focus:ring-0 text-sm" 
+                            value={item.cost} 
+                            onChange={(e) => handleEdit(item.id, 'cost', e.target.value)}
+                          />
+                        </td>
+                        <td className="px-6 py-4">
+                          <select 
+                            className="bg-transparent border-none text-[10px] font-bold focus:ring-0 p-0"
+                            value={item.currency}
+                            onChange={(e) => handleEdit(item.id, 'currency', e.target.value)}
+                          >
+                            {Object.keys(settings.rates).map(curr => (
+                              <option key={curr} value={curr}>{curr}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-6 py-4">
+                          <input 
+                            className="bg-transparent border-none text-xs text-slate-400 w-full p-0 focus:ring-0 italic" 
+                            value={item.note} 
+                            onChange={(e) => handleEdit(item.id, 'note', e.target.value)}
+                            placeholder="..."
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="p-8 bg-slate-50/50 flex justify-center">
+                  <button 
+                    onClick={() => setItinerary([...itinerary, { id: Date.now(), date: '2026-03-07', day: 'Day 15', city: 'Vienna', startTime: '10:00', activity: 'New Activity', category: '景點', cost: 0, currency: 'EUR', status: '規劃中', note: '' }])}
+                    className="px-6 py-2 bg-white border border-slate-200 rounded-full text-xs font-bold text-slate-600 shadow-sm hover:shadow-md transition-all flex items-center gap-2"
+                  >
+                    <Plus size={16} /> 新增行程項目
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-12 max-w-5xl mx-auto">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  
+                  {/* Currency Card */}
+                  <div className="lg:col-span-1 space-y-6">
+                    <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
+                      <div className="flex items-center gap-2 mb-6">
+                        <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600">
+                          <Wallet size={18}/>
+                        </div>
+                        <h3 className="font-bold">匯率設定 (TWD)</h3>
+                      </div>
+                      <div className="space-y-4">
+                        {Object.entries(settings.rates).map(([code, rate]) => (
+                          <div key={code} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <span className="text-xs font-black text-slate-500 uppercase">{code}</span>
+                            <div className="flex items-center gap-2">
+                              <input 
+                                type="number" step="0.01"
+                                className="bg-white border border-slate-200 rounded px-2 py-1 text-sm font-mono font-bold w-20 text-right"
+                                value={rate}
+                                onChange={(e) => setSettings({...settings, rates: {...settings.rates, [code]: Number(e.target.value)}})}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
+                      <div className="flex items-center gap-2 mb-6">
+                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">
+                          <Settings2 size={18}/>
+                        </div>
+                        <h3 className="font-bold">其他參數</h3>
+                      </div>
+                      <div className="space-y-4">
+                         <div className="flex justify-between items-center">
+                          <span className="text-xs text-slate-500">預備金比例</span>
+                          <span className="font-mono text-sm font-bold">10%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Summary Card */}
+                  <div className="lg:col-span-2">
+                    <div className="bg-slate-900 rounded-3xl p-10 text-white shadow-xl relative overflow-hidden">
+                      <div className="relative z-10">
+                        <h3 className="text-lg font-bold mb-10 opacity-60">預算組成分析</h3>
+                        <div className="space-y-8">
+                          <div className="flex justify-between items-end border-b border-white/10 pb-4">
+                            <div>
+                              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Itinerary Total</p>
+                              <p className="text-slate-300 text-sm">行程項目小計</p>
+                            </div>
+                            <p className="text-2xl font-mono">NT$ {budgetStats.itineraryTotalTWD.toLocaleString()}</p>
+                          </div>
+                          
+                          <div className="flex justify-between items-end border-b border-white/10 pb-4">
+                            <div>
+                              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Buffer (10%)</p>
+                              <p className="text-slate-300 text-sm">風險預備金</p>
+                            </div>
+                            <p className="text-2xl font-mono">NT$ {budgetStats.reserve.toLocaleString()}</p>
+                          </div>
+
+                          <div className="pt-6 flex justify-between items-center">
+                            <p className="text-xl font-bold">預估總支出</p>
+                            <div className="text-right">
+                              <p className="text-5xl font-black text-blue-400 font-mono tracking-tighter">
+                                NT$ {budgetStats.grandTotal.toLocaleString()}
+                              </p>
+                              <p className="text-slate-500 text-[10px] mt-2 font-bold italic">Generated from live calculation</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Decorative Background Element */}
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Tabs Control */}
-        <div className="flex border-b border-slate-200 px-8 bg-slate-50">
-          <button 
-            onClick={() => setActiveTab('itinerary')}
-            className={`py-4 px-6 flex items-center gap-2 font-bold transition-all ${activeTab === 'itinerary' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
-          >
-            <Calendar size={18} /> 行程規劃表
-          </button>
-          <button 
-            onClick={() => setActiveTab('budget')}
-            className={`py-4 px-6 flex items-center gap-2 font-bold transition-all ${activeTab === 'budget' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
-          >
-            <Wallet size={18} /> 預算與匯率
-          </button>
-        </div>
-
-        {/* Content Area */}
-        <div className="p-0">
-          {activeTab === 'itinerary' ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[1000px]">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-widest border-b border-slate-200">
-                    <th className="px-6 py-4 w-16">狀態</th>
-                    <th className="px-6 py-4 w-32">日期/天數</th>
-                    <th className="px-6 py-4 w-32">地點</th>
-                    <th className="px-6 py-4">行程內容</th>
-                    <th className="px-6 py-4 w-28">分類</th>
-                    <th className="px-6 py-4 w-32 text-right">費用</th>
-                    <th className="px-6 py-4 w-20">幣別</th>
-                    <th className="px-6 py-4 w-48">備註</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {itinerary.map(item => (
-                    <tr key={item.id} className="hover:bg-blue-50/50 transition-colors group">
-                      <td className="px-6 py-3">
-                        <button 
-                          onClick={() => handleEdit(item.id, 'status', item.status === '已確認' ? '規劃中' : '已確認')}
-                          className="focus:outline-none"
-                        >
-                          {item.status === '已確認' ? <CheckCircle2 className="text-emerald-500" size={20}/> : <Circle className="text-slate-300" size={20}/>}
-                        </button>
-                      </td>
-                      <td className="px-6 py-3">
-                        <input 
-                          className="bg-transparent border-none focus:ring-2 focus:ring-blue-200 rounded p-1 w-full font-medium" 
-                          value={item.date} 
-                          onChange={(e) => handleEdit(item.id, 'date', e.target.value)}
-                        />
-                        <div className="text-[10px] text-slate-400 px-1">{item.day}</div>
-                      </td>
-                      <td className="px-6 py-3">
-                        <input 
-                          className="bg-transparent border-none focus:ring-2 focus:ring-blue-200 rounded p-1 w-full" 
-                          value={item.city} 
-                          onChange={(e) => handleEdit(item.id, 'city', e.target.value)}
-                        />
-                      </td>
-                      <td className="px-6 py-3">
-                        <input 
-                          className="bg-transparent border-none focus:ring-2 focus:ring-blue-200 rounded p-1 w-full font-bold text-slate-800" 
-                          value={item.activity} 
-                          onChange={(e) => handleEdit(item.id, 'activity', e.target.value)}
-                        />
-                      </td>
-                      <td className="px-6 py-3">
-                        <select 
-                          className={`text-[10px] font-bold py-1 px-2 rounded-full border-none appearance-none ${getCategoryColor(item.category)}`}
-                          value={item.category}
-                          onChange={(e) => handleEdit(item.id, 'category', e.target.value)}
-                        >
-                          {['交通', '餐飲', '滑雪', '博物館', '景點', '行政', '休閒', '泡湯'].map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-6 py-3 text-right">
-                        <input 
-                          type="number"
-                          className="bg-transparent border-none focus:ring-2 focus:ring-blue-200 rounded p-1 w-full text-right font-mono font-bold" 
-                          value={item.cost} 
-                          onChange={(e) => handleEdit(item.id, 'cost', e.target.value)}
-                        />
-                      </td>
-                      <td className="px-6 py-3">
-                        <select 
-                          className="bg-transparent border-none text-xs font-bold"
-                          value={item.currency}
-                          onChange={(e) => handleEdit(item.id, 'currency', e.target.value)}
-                        >
-                          {Object.keys(settings.rates).map(curr => (
-                            <option key={curr} value={curr}>{curr}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-6 py-3">
-                        <input 
-                          className="bg-transparent border-none focus:ring-2 focus:ring-blue-200 rounded p-1 w-full text-xs text-slate-500" 
-                          value={item.note} 
-                          onChange={(e) => handleEdit(item.id, 'note', e.target.value)}
-                          placeholder="點擊輸入備註..."
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="p-6 bg-slate-50 border-t border-slate-200">
-                <button 
-                  onClick={() => setItinerary([...itinerary, { id: Date.now(), date: '2026-02-21', day: 'Day x', city: '城市', activity: '新行程', category: '景點', cost: 0, currency: 'EUR', status: '規劃中', note: '' }])}
-                  className="flex items-center gap-2 text-blue-600 font-bold hover:text-blue-800 transition-colors"
-                >
-                  <Plus size={20} /> 新增一行行程
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="p-8 max-w-4xl mx-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-sm">
-                  <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                    <Settings2 size={20} className="text-blue-500"/> 基礎預算假設
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-600">機票費用 (TWD)</span>
-                      <input 
-                        type="number"
-                        className="bg-white border border-slate-200 rounded-lg px-3 py-1 font-mono font-bold w-32 text-right"
-                        value={settings.planeTicket}
-                        onChange={(e) => setSettings({...settings, planeTicket: e.target.value})}
-                      />
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-600">預備金比例 (10%)</span>
-                      <span className="font-mono font-bold">{settings.reserveRate * 100}%</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-sm">
-                  <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                    <Wallet size={20} className="text-emerald-500"/> 當前匯率設定
-                  </h3>
-                  <div className="space-y-4 font-mono">
-                    {Object.entries(settings.rates).map(([code, rate]) => (
-                      <div key={code} className="flex justify-between items-center">
-                        <span className="text-slate-600">1 {code} =</span>
-                        <div className="flex items-center gap-2">
-                          <input 
-                            type="number"
-                            step="0.01"
-                            className="bg-white border border-slate-200 rounded-lg px-3 py-1 font-bold w-24 text-right"
-                            value={rate}
-                            onChange={(e) => setSettings({
-                              ...settings, 
-                              rates: { ...settings.rates, [code]: Number(e.target.value) }
-                            })}
-                          />
-                          <span className="text-xs text-slate-400">TWD</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-blue-600 rounded-3xl p-8 text-white shadow-lg">
-                <h3 className="text-xl font-bold mb-8">預算分析總表</h3>
-                <div className="space-y-6">
-                  <div className="flex justify-between items-center border-b border-white/20 pb-4">
-                    <span className="opacity-80">行程表內容小計 (已換算台幣)</span>
-                    <span className="text-2xl font-mono">NT$ {budgetStats.itineraryTotalTWD.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center border-b border-white/20 pb-4">
-                    <span className="opacity-80">預備金 (Buffer)</span>
-                    <span className="text-2xl font-mono">NT$ {budgetStats.reserve.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center pt-2">
-                    <span className="text-xl font-bold">預估總支出預算</span>
-                    <span className="text-4xl font-black text-amber-300">NT$ {budgetStats.grandTotal.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer info */}
-        <div className="bg-slate-50 px-8 py-4 text-center text-slate-400 text-xs border-t border-slate-200">
-          提示：所有表格欄位皆可直接點擊修改。修改後預算將自動重新計算。
+        <div className="px-8 py-4 text-slate-400 text-[10px] flex justify-between items-center uppercase tracking-widest font-bold">
+          <span>Data source: Central_Europe_Itinerary_Detailed.xlsx</span>
+          <span>Editor Version 2.0 (Live Sync)</span>
         </div>
       </div>
     </div>
